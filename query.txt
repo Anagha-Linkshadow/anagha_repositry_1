@@ -1,0 +1,38 @@
+SELECT 
+    n.nspname AS schema_name,
+    c.relname AS table_name,
+    r.oid AS role_id,                      -- Role ID
+    r.rolname AS user_name,                -- Role name as username
+    CASE
+        WHEN r.rolsuper THEN 'Superuser'
+        WHEN r.rolcanlogin THEN 'Login Role'
+        ELSE NULL  -- Exclude group roles
+    END AS user_type,                      -- User type
+    CASE
+        WHEN has_table_privilege(r.rolname, c.oid, 'SELECT') THEN 'SELECT'
+        ELSE NULL
+    END AS select_privilege,
+    CASE
+        WHEN has_table_privilege(r.rolname, c.oid, 'INSERT') THEN 'INSERT'
+        ELSE NULL
+    END AS insert_privilege,
+    CASE
+        WHEN has_table_privilege(r.rolname, c.oid, 'UPDATE') THEN 'UPDATE'
+        ELSE NULL
+    END AS update_privilege,
+    CASE
+        WHEN has_table_privilege(r.rolname, c.oid, 'DELETE') THEN 'DELETE'
+        ELSE NULL
+    END AS delete_privilege
+FROM 
+    pg_catalog.pg_class c
+JOIN 
+    pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+JOIN 
+    pg_catalog.pg_roles r ON r.rolname IS NOT NULL
+WHERE 
+    c.relkind = 'r'  -- Only tables
+    AND n.nspname NOT IN ('pg_catalog', 'information_schema','pg_toast')  -- Exclude system schemas
+    AND (r.rolcanlogin OR r.rolsuper)  -- Include only users and superusers
+ORDER BY 
+    schema_name, table_name, user_name;    -- Order by user_name
